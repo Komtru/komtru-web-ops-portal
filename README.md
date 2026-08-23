@@ -43,9 +43,10 @@ pnpm dev                     # http://localhost:7820
 | --- | --- |
 | `NEXT_PUBLIC_BASE_URL` | Backend origin + version prefix, e.g. `http://localhost:7821/v1` |
 | `NEXT_PUBLIC_APP_URL` | Public origin of this app; drives `metadataBase` |
+| `NEXT_PUBLIC_SOCKET_URL` | Origin of the Socket.IO gateway. Blank switches realtime off entirely |
 
 `.env*` is git-ignored except `.env.example`. Never commit real keys. Add variables as modules need
-them (websocket gateway, reCAPTCHA, error reporting) rather than up front.
+them (reCAPTCHA, error reporting) rather than up front.
 
 ## How requests work
 
@@ -98,16 +99,48 @@ src/
     ui/                        # shadcn primitives (generated, then re-themed)
     general/                   # shell chrome, KomtruMark, Spinner, QueryState
     forms/                     # FloatingLabelInput, DatePicker, MultiSelect
+    realtime/                  # socket connection + live notification context
     query-provider.tsx  theme-provider.tsx
-  config/    brand.ts (the only raw hex), menu.tsx (nav structure)
+  config/    brand.ts (the only raw hex), menu.tsx (nav structure), realtime.ts
   helpers/   format, timezones, delay, redirect (safe `redirect_uri` handling)
   hooks/     useCustomToast, useRowLoading, useDeviceTimeZone, use-mobile
-  interfaces/  IAxios, auth, organization, common
+  interfaces/  IAxios, auth, organization, common, realtime
   lib/       react-query.ts (QueryClient singleton), utils.ts (cn)
   services/  base.ts (facade), auth.services.ts, organization.services.ts
   store/     auth.store.ts, sidebar.store.ts
   middleware.ts
 ```
+
+## Realtime
+
+One Socket.IO connection per session, opened by `components/realtime/` and mounted inside
+`DashboardShell`'s **signed-in branch** — so the sign-in, MFA and logout screens never open one.
+That's structural: the provider isn't rendered for them at all, rather than rendered and told to
+stand down.
+
+The connection does **not** go through the `/api` rewrite. A WebSocket upgrade needs the persistent
+backend process directly, so `NEXT_PUBLIC_SOCKET_URL` names the backend origin and the backend's
+`SOCKET_CORS_ORIGINS` must list this app's origin.
+
+**The handshake credential is the ordinary access token**, read from `auth.store`. There is no
+separately minted socket token: the gateway verifies the handshake with the same Ed25519 key and the
+same epoch/session checks as an HTTP request, and deliberately has no `SOCKET_AUTH_TOKEN_SECRET` — a
+second signing secret would be a second identity system. `auth` is passed to `io()` as a *callback*,
+so every connection attempt reads the token current at that instant; a rotation ten minutes in
+doesn't strand the socket on a stale one and doesn't force a reconnect either.
+
+Three hooks, all from `components/realtime/`:
+
+| Hook | Use for |
+| --- | --- |
+| `useSocketEvent(name, handler)` | Any event. Handler is ref-held, so an inline arrow is fine |
+| `useSocketReconnect(handler)` | Re-read the API after a gap — fires on reconnect, never first connect |
+| `useNotifications()` | `{ notifications, unreadCount, markAllRead }` for the personal room |
+
+A push is **"something changed, go check"**, never the only copy of the truth. Pushes are simply
+missed while a socket is down, so anything driven by them hangs a refetch off `useSocketReconnect`.
+This layer stays transport-only: `LiveNotification.payload` is `unknown`, and what a notification
+means or how it renders belongs to the Notifications module.
 
 ## Adding a module
 
@@ -219,7 +252,7 @@ Guard rails:
 
 The dependency set is installed up front per the project spec, so some packages have no call sites
 yet: `@tanstack/react-table`, `recharts`, `react-dropzone`, `react-phone-number-input`,
-`react-google-recaptcha`, `nookies`, `date-fns`, `uuid`. Use them when a module needs them, or drop
+`react-google-recaptcha`, `nookies`, `date-fns`. Use them when a module needs them, or drop
 them if it turns out none does.
 
 ## Deploy
