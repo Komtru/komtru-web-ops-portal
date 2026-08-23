@@ -80,7 +80,7 @@
     --accent-foreground: #0c6b49;
     --destructive: #c0392e;
     --destructive-foreground: #ffffff;
-    --border: #e5e9f0;
+    --border: #e3e8f0;
     --input: #e5e9f0;
     --ring: #4552d6;
 
@@ -90,22 +90,34 @@
     --chart-4: #6b7688;
     --chart-5: #c0392e;
 
-    --sidebar: #0d1420;
-    --sidebar-foreground: #e5e9f0;
+    /* Sidebar shares the shell base so the two panes read as one surface. */
+    --sidebar: #f5f7fa;
+    --sidebar-foreground: #333d4f;
     --sidebar-primary: #4552d6;
     --sidebar-primary-foreground: #ffffff;
-    --sidebar-accent: #1a2333;
-    --sidebar-accent-foreground: #ffffff;
-    --sidebar-border: #1f2836;
+    --sidebar-accent: rgb(69 82 214 / 0.1);
+    --sidebar-accent-foreground: #3843ad;
+    --sidebar-border: rgb(16 23 37 / 0.08);
     --sidebar-ring: #4552d6;
+
+    /* Shell blend, consumed by `shell-blend`. Komtru Midnight (#0d1420) is the
+     * primary: in light mode it's the tint hazing the cloud base, and indigo is
+     * only a trace accent so the wash never reads as a blue gradient. */
+    --shell-base: #f5f7fa;
+    --shell-midnight: rgb(13 20 32 / 0.07);
+    --shell-accent: rgb(69 82 214 / 0.04);
+    --shell-deep: rgb(13 20 32 / 0.05);
+    --shell-crest: rgb(255 255 255 / 0.8);
+    --veil: rgb(255 255 255 / 0.78);
+    --veil-line: rgb(16 23 37 / 0.07);
   }
 
   .dark {
     --background: #0d1420;
     --foreground: #eef1f5;
-    --card: #1a2333;
+    --card: #141d2b;
     --card-foreground: #eef1f5;
-    --popover: #1a2333;
+    --popover: #161f2e;
     --popover-foreground: #eef1f5;
     --primary: #7b85e6;
     --primary-foreground: #0d1420;
@@ -117,7 +129,7 @@
     --accent-foreground: #6fd6a9;
     --destructive: #e2685c;
     --destructive-foreground: #0d1420;
-    --border: #273040;
+    --border: #1c2534;
     --input: #273040;
     --ring: #7b85e6;
 
@@ -127,14 +139,25 @@
     --chart-4: #9aa5b8;
     --chart-5: #e2685c;
 
-    --sidebar: #080d16;
+    --sidebar: #0d1420;
     --sidebar-foreground: #cdd4e0;
     --sidebar-primary: #7b85e6;
-    --sidebar-primary-foreground: #080d16;
-    --sidebar-accent: #1a2333;
+    --sidebar-primary-foreground: #0d1420;
+    --sidebar-accent: rgb(123 133 230 / 0.16);
     --sidebar-accent-foreground: #ffffff;
-    --sidebar-border: #1f2836;
+    --sidebar-border: rgb(255 255 255 / 0.07);
     --sidebar-ring: #7b85e6;
+
+    /* Midnight is the base *and* the modulation: the wash is a luminance ramp
+     * within the brand's own family (charcoal lift → deep midnight), with a
+     * trace of indigo so it isn't dead flat. */
+    --shell-base: #0d1420;
+    --shell-midnight: rgb(26 35 51 / 0.75);
+    --shell-accent: rgb(69 82 214 / 0.07);
+    --shell-deep: rgb(7 11 19 / 0.85);
+    --shell-crest: rgb(255 255 255 / 0.035);
+    --veil: rgb(255 255 255 / 0.032);
+    --veil-line: rgb(255 255 255 / 0.07);
   }
 }
 
@@ -218,10 +241,39 @@
   font-variant-numeric: tabular-nums;
 }
 
-@utility surface-card {
-  background-color: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+/**
+ * The shell wash. Sits on the element that spans sidebar + content so both
+ * panes sample one continuous gradient instead of meeting at a seam.
+ *
+ * Komtru Midnight is the primary colour: the base tone, the top-left haze and
+ * the far-corner settle all come from it, and indigo appears only as a trace so
+ * the result reads as brand midnight rather than as a blue gradient. Order
+ * matters — midnight lifts first, the deep corner sits under it.
+ *
+ * `background-attachment: fixed` anchors the wash to the viewport, which is
+ * what keeps the fixed sidebar and the scrolling content in register — without
+ * it the two drift apart as soon as the page scrolls.
+ */
+@utility shell-blend {
+  background-color: var(--shell-base);
+  background-image:
+    radial-gradient(80rem 46rem at 6% -10%, var(--shell-midnight), transparent 64%),
+    radial-gradient(58rem 32rem at 98% 2%, var(--shell-accent), transparent 56%),
+    radial-gradient(70rem 48rem at 88% 108%, var(--shell-deep), transparent 60%),
+    linear-gradient(180deg, var(--shell-crest), transparent 38%);
+  background-attachment: fixed;
+}
+
+/**
+ * A panel that lifts off the wash rather than covering it: translucent fill,
+ * hairline edge, no shadow. Radius is computed from `--radius` because the
+ * `--radius-*` names live in `@theme inline` and aren't emitted at runtime.
+ */
+@utility surface-veil {
+  background-color: var(--veil);
+  border: 1px solid var(--veil-line);
+  border-radius: calc(var(--radius) + 4px);
+  backdrop-filter: blur(12px) saturate(1.05);
 }
 
 /* Hide scrollbars on horizontal rails without losing keyboard scroll. */

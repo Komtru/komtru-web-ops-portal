@@ -1,7 +1,8 @@
 # Komtru Operations
 
 Internal admin / operations console for Komtru. **Not** the customer-facing app — there is no public
-marketing surface here, and `/` redirects straight to `/dashboard`.
+marketing surface here: `/` is the operator sign-in screen and everything else lives under
+`/dashboard`.
 
 This repository is currently the **architecture skeleton**: shell, theming, HTTP layer, state layer
 and shared form widgets. Feature modules are built from their own specs and mount into it.
@@ -89,9 +90,9 @@ for new modules.
 src/
   app/
     layout.tsx                 # metadata, providers, Toaster, top loader
-    page.tsx                   # redirect → /dashboard
     globals.css                # Tailwind v4 @theme brand tokens + shadcn vars
     fonts.ts                   # Space Grotesk / Inter / IBM Plex Mono
+    (auth)/                    # `/` email step + `/verify` OTP step
     (dashboard)/dashboard/     # shell (sidebar + topbar) + placeholder overview
   components/
     ui/                        # shadcn primitives (generated, then re-themed)
@@ -99,11 +100,11 @@ src/
     forms/                     # FloatingLabelInput, DatePicker, MultiSelect
     query-provider.tsx  theme-provider.tsx
   config/    brand.ts (the only raw hex), menu.tsx (nav structure)
-  helpers/   format, timezones, delay
+  helpers/   format, timezones, delay, redirect (safe `redirect_uri` handling)
   hooks/     useCustomToast, useRowLoading, useDeviceTimeZone, use-mobile
   interfaces/  IAxios, auth, organization, common
   lib/       react-query.ts (QueryClient singleton), utils.ts (cn)
-  services/  base.ts (facade), organization.services.ts
+  services/  base.ts (facade), auth.services.ts, organization.services.ts
   store/     auth.store.ts, sidebar.store.ts
   middleware.ts
 ```
@@ -134,6 +135,20 @@ There is no `tailwind.config.ts` and there should not be — Tailwind v4 is conf
 Every colour has a dark counterpart under `.dark`; `next-themes` drives the class with
 `defaultTheme="system"`.
 
+**The blended shell.** Chrome has no two-tone split: sidebar, topbar and content sit on one
+continuous wash. Two utilities in `globals.css` do it, driven by the `--shell-*` / `--veil-*` vars:
+
+- `shell-blend` — the wash. **Komtru Midnight `#0d1420` is its primary colour**: the base tone in
+  dark, the tint hazing the cloud base in light, and the far-corner settle in both. Indigo appears
+  only as a trace accent (≤ 7% alpha) so the result never reads as a blue gradient. It goes on the
+  element that spans sidebar *and* content, and uses `background-attachment: fixed` so the fixed
+  sidebar and the scrolling content stay in register.
+- `surface-veil` — a panel that lifts off the wash instead of covering it: translucent fill,
+  hairline edge, no shadow. Prefer it over `bg-card` for full-width page surfaces.
+
+`--sidebar` intentionally equals `--background` in both themes; the only edge is a
+`--sidebar-border` hairline. Panes inside `shell-blend` must stay transparent.
+
 ## Forms
 
 Formik + Yup, one `Yup.object({...})` schema per form declared above the component. `handleSubmit`
@@ -146,22 +161,59 @@ Formik helpers as `FormikHelpers<T>` — no `any`.
 <ErrorMessage name="email" component="span" className="text-komtru-risk text-xs" />
 ```
 
-## Auth status — read this before adding routes
+## Auth — read this before adding routes
 
-**There is no login flow, on purpose.** The account model (roles, statuses, providers, login/2FA
-payloads) is not defined, so nothing here pretends to authenticate:
+Sign-in is **staff email OTP**, two steps, no password (the password endpoint is refused unless the
+deployment opts in):
 
-- No `(authentication)` route group, no `auth.services.ts`, no role enums.
-- `interfaces/auth.ts` carries only the token/session shapes the refresh interceptor needs, with
-  `IAuth`/`IUser` as deliberately minimal placeholders.
-- `middleware.ts` is a pass-through. `localStorage` tokens are invisible to the edge runtime, so a
-  guard there would be theatre. When tokens also land in cookies, that is where the real guard goes;
-  until then do client-side redirects in `DashboardShell` based on `hydrated && access`.
-- `config/menu.tsx` shows every entry to every operator. Filter it once at the layout boundary when
-  roles exist.
+1. `/` — email input. `POST auth/staff/login/request` always answers **202 with a bare ack, no
+   `data`**. That response is byte-identical for a real operator, a consumer, an unknown address and
+   a throttled one — so success means "accepted", never "an email was sent", and no copy anywhere
+   may imply the address exists. Routes to step 2 with the email (and any `redirect_uri`) in the
+   query string, so a refresh or a bookmarked step-2 link still has what it needs.
+2. `/verify` — segmented 6-digit field (`components/forms/otp-input.tsx`, auto-submits on the last
+   digit; codes live 5 minutes, 5 attempts). `POST auth/staff/login/verify` answers **200 two ways**
+   — a session, or `{ mfaRequired, mfaToken, factors }` when the account has an active factor.
+   `helpers/session.ts#isMfaChallenge` discriminates them.
 
-The plumbing is ready: the store, the `Bearer` request interceptor and the single-flight refresh
-queue all work the moment a real login populates the session.
+On a session: `useVerifyOtp` maps the flat tokens through `toAccess` and commits, then the form
+`replace`s to `redirect_uri` or `/dashboard`. A non-null `nextStep` (`ENROL_MFA` for every bootstrap
+admin) is outstanding *setup*, not a failed sign-in — the operator continues, with a toast.
+
+> **Not built yet: the second factor.** `POST auth/mfa/verify` (mfaToken + factorId + code) is
+> documented but has no screen, so `mfaRequired` renders an explicit "ask an administrator" state
+> rather than pretending. Same for enrolment (`POST me/mfa/totp/enroll`). Note the API demands an
+> enrolled factor even when `IDENTITY_STAFF_REQUIRE_MFA=false`, so this path activates the moment
+> anyone enrols.
+
+Session handling:
+
+- **Tokens arrive flat** (`accessToken`, `refreshToken`, `expiresIn`) and are normalised to the
+  nested pair the store holds by `helpers/session.ts#toAccess`. Only the access token gets an
+  expiry; the refresh token is an opaque string.
+- **Refresh is `POST auth/refresh` and tokens rotate** — presenting a spent one revokes the whole
+  family, which is why the single-flight queue in `services/base.ts` is a correctness requirement,
+  not an optimisation. The API also sets the refresh token as an HttpOnly cookie on `Path=/v1/auth`;
+  that path is invisible through the `/api` rewrite, so the body value is what gets used.
+- **401 is the only signal.** The API publishes no machine-readable sub-code (a distinguishable
+  `REUSE_DETECTED` would tell an attacker their stolen token tripped the alarm), so the interceptor
+  treats a 401 as "refresh once and replay", and a second failure as a dead session → clear the
+  store, leave for `/?reason=session_expired`. 401s from `auth/staff/login/*` are exempt: that's a
+  bad code, not a stale session. Access tokens last 10 minutes; staff sessions idle out at 30
+  minutes and expire absolutely at 8 hours, so this path runs constantly.
+
+Guard rails:
+
+- `helpers/redirect.ts` narrows `redirect_uri` to a same-origin path, so a crafted link can't bounce
+  a freshly-created session to another origin. Absolute, `//host` and `/\host` forms are rejected.
+- `DashboardShell` gates the console on `hydrated && access` and renders nothing but a spinner until
+  the session is known, bouncing to `/?redirect_uri=<where they were headed>`.
+- `middleware.ts` is still a pass-through: `localStorage` tokens are invisible to the edge runtime,
+  so a guard there would be theatre.
+- **Staff sessions carry no tenant** — the store keeps `organization: null`, and the topbar labels
+  the operator by username-or-email plus `publicId`. Roles/permissions are equally unmodelled: the
+  token has a `scp: STAFF` claim but the response body doesn't expose the role, so `config/menu.tsx`
+  shows every entry to every operator. Filter it once at the layout boundary when roles land.
 
 ## Pre-installed but unused
 

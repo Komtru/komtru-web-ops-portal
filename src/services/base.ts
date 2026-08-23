@@ -17,6 +17,7 @@ import type {
   QueryParams,
   RequestError,
 } from '@/interfaces/IAxios';
+import { clearClientSession, type IssuedTokens, toAccess } from '@/helpers/session';
 import { useAuthStore } from '@/store/auth.store';
 
 /**
@@ -26,25 +27,28 @@ import { useAuthStore } from '@/store/auth.store';
 const BASE_URL = '/api/';
 
 /**
- * Stable machine-readable codes the API returns alongside a 401. We branch on
- * these — never on human-readable message text, which is free to change.
+ * Every auth failure is a bare `401` with one message — `Invalid credentials.`
+ * on login, `Your session is no longer valid. Sign in again.` on refresh. The
+ * API deliberately publishes no machine-readable sub-code: a distinguishable
+ * `REUSE_DETECTED` would tell an attacker their stolen token tripped the alarm.
+ *
+ * So the only signal available is the status itself. A 401 on a normal request
+ * means "try refreshing once"; a 401 from the refresh means "the session is
+ * gone". `_retry` is what keeps the first from looping into the second.
  */
-export const AUTH_ERROR_CODES = {
-  ACCESS_TOKEN_EXPIRED: 'access_token_expired',
-  ACCESS_TOKEN_REVOKED: 'access_token_revoked',
-  REFRESH_TOKEN_EXPIRED: 'refresh_token_expired',
-  SESSION_TERMINATED: 'session_terminated',
-} as const;
+const UNAUTHORIZED = 401;
 
-const EXPIRED_CODES: string[] = [AUTH_ERROR_CODES.ACCESS_TOKEN_EXPIRED];
+/**
+ * Where a dead session lands: the sign-in screen at `/`, carrying the reason.
+ */
+const LOGOUT_PATH = '/';
 
-const REVOKED_CODES: string[] = [
-  AUTH_ERROR_CODES.ACCESS_TOKEN_REVOKED,
-  AUTH_ERROR_CODES.REFRESH_TOKEN_EXPIRED,
-  AUTH_ERROR_CODES.SESSION_TERMINATED,
-];
-
-const LOGOUT_PATH = '/auth/logout';
+/**
+ * Refresh tokens **rotate** — the response's token replaces the one sent, and
+ * replaying a spent token revokes the whole family. Hence the single-flight
+ * queue below is a correctness requirement, not just an optimisation.
+ */
+const REFRESH_PATH = 'auth/refresh';
 
 /** Requests carry a `_retry` flag so a replayed request can't loop forever. */
 type RetriableConfig = InternalAxiosRequestConfig & { _retry?: boolean };
@@ -65,14 +69,22 @@ function withQuery(url: string, query?: QueryParams): string {
   return `${url}${serializeQuery(query)}`;
 }
 
-function readErrorCode(response?: AxiosResponse): string | undefined {
-  const data = response?.data as Partial<RequestError> | undefined;
-  return typeof data?.code === 'string' ? data.code : undefined;
-}
+/**
+ * Drops the session, then leaves for the sign-in screen.
+ *
+ * Clearing first is load-bearing: the login page bounces anyone holding a token
+ * straight back to the console, so leaving the dead tokens in place would
+ * ping-pong the operator between the two until the next 401.
+ *
+ * Goes straight to `/` rather than through `/logout`: the session is already
+ * dead server-side, so there is nothing left to revoke — only the same local
+ * teardown that page performs.
+ */
+function hardRedirectToLogout(reason: string): void {
+  clearClientSession();
 
-function hardRedirectToLogout(code: string): void {
   if (typeof window === 'undefined') return;
-  window.location.href = `${LOGOUT_PATH}?code=${code}`;
+  window.location.href = `${LOGOUT_PATH}?reason=${reason}`;
 }
 
 /** Parses `filename="…"` (and RFC 5987 `filename*=`) out of content-disposition. */
@@ -127,25 +139,37 @@ async function performRefresh(): Promise<string> {
     throw new Error('No refresh token available.');
   }
 
-  const { data } = await refreshClient.post('auth/refresh-tokens', {
+  const { data } = await refreshClient.post(REFRESH_PATH, {
     refreshToken,
   });
 
-  // Accept either the bare token pair or the standard `{ data }` envelope.
-  const tokens = data?.data?.tokens ?? data?.tokens ?? data?.data ?? data;
+  // Identity endpoints answer `{ status, data }` with the tokens flat inside
+  // `data`; unwrap the envelope if it's there, then normalise to the nested
+  // pair the store holds.
+  const issued: Partial<IssuedTokens> = data?.data ?? data ?? {};
 
-  if (!tokens?.access?.token) {
+  if (!issued.accessToken) {
     throw new Error('Refresh response did not contain an access token.');
   }
 
-  useAuthStore.getState().setAccess(tokens);
+  // A refresh that rotates the refresh token replaces it; one that doesn't
+  // leaves the caller's token in place rather than storing `undefined`.
+  useAuthStore.getState().setAccess(
+    toAccess({
+      accessToken: issued.accessToken,
+      refreshToken: issued.refreshToken ?? refreshToken,
+      expiresIn: issued.expiresIn,
+    }),
+  );
 
-  return tokens.access.token as string;
+  return issued.accessToken;
 }
 
 /**
- * N concurrent 401s trigger exactly one `POST /auth/refresh-tokens`; everyone
- * else waits on the same promise and replays with the fresh token.
+ * N concurrent 401s trigger exactly one refresh call; everyone else waits on the
+ * same promise and replays with the fresh token. With rotating refresh tokens a
+ * second concurrent call would present an already-spent token and take down the
+ * whole family, so this queue is doing real work.
  */
 function refreshAccessToken(): Promise<string> {
   if (isRefreshing && refreshPromise) {
@@ -197,17 +221,25 @@ function attachResponseInterceptor(instance: AxiosInstance): void {
     async (error: AxiosError) => {
       const response = error.response;
       const originalRequest = error.config as RetriableConfig | undefined;
-      const code = readErrorCode(response);
       const status = response?.status;
 
-      if (status === 401 && code && REVOKED_CODES.includes(code)) {
-        hardRedirectToLogout('access_revoked');
-        return Promise.reject(response?.data ?? error);
-      }
+      /**
+       * Access tokens last 10 minutes, so a 401 mid-session is usually just
+       * expiry. Try one refresh and replay; if that fails the session is
+       * genuinely gone (idle timeout at 30min, absolute at 8h, or the
+       * `sessions_epoch` kill switch) and the operator has to sign in again.
+       *
+       * Sign-in itself is exempt: a 401 from `auth/staff/login/*` is a bad code,
+       * and there is no session to refresh or discard.
+       */
+      const isLoginAttempt = originalRequest?.url?.startsWith('auth/staff/login');
 
-      const isExpired = status === 401 && code ? EXPIRED_CODES.includes(code) : false;
+      if (status === UNAUTHORIZED && !isLoginAttempt && originalRequest) {
+        if (originalRequest._retry) {
+          hardRedirectToLogout('session_expired');
+          return Promise.reject(response?.data ?? error);
+        }
 
-      if (isExpired && originalRequest && !originalRequest._retry) {
         originalRequest._retry = true;
 
         try {
@@ -215,7 +247,7 @@ function attachResponseInterceptor(instance: AxiosInstance): void {
           originalRequest.headers.Authorization = `Bearer ${token}`;
           return instance(originalRequest);
         } catch {
-          hardRedirectToLogout('access_revoked');
+          hardRedirectToLogout('session_expired');
           return Promise.reject(response?.data ?? error);
         }
       }
@@ -234,7 +266,7 @@ function normalizeTransportError(error: AxiosError): RequestError {
     message:
       error.code === 'ECONNABORTED'
         ? 'The request timed out. Check your connection and try again.'
-        : (error.message || 'Network request failed. Check your connection and try again.'),
+        : error.message || 'Network request failed. Check your connection and try again.',
   };
 }
 
@@ -282,7 +314,8 @@ class HttpFacade {
         response.headers['content-disposition'] as string | undefined,
         'komtru-download',
       ),
-      contentType: (response.headers['content-type'] as string | undefined) ?? 'application/octet-stream',
+      contentType:
+        (response.headers['content-type'] as string | undefined) ?? 'application/octet-stream',
     };
   }
 

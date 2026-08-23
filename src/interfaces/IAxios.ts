@@ -44,13 +44,19 @@ export interface IResponse<D> {
   data: D;
 }
 
-/** Standard error envelope. Callers read `err.message`. */
+/**
+ * Standard error envelope. Callers read `err.message` — it is the only field
+ * the API guarantees, and auth failures deliberately carry one uniform message.
+ *
+ * `code` is the HTTP status as a **number** on API errors (`{ status: "error",
+ * code: 401, message }`); it is a string only for transport failures, where
+ * axios supplies its own (`ECONNABORTED`).
+ */
 export interface RequestError {
-  status: false;
-  code?: string;
+  status: false | 'error';
+  code?: number | string;
   message: string;
   errors?: Record<string, string[]>;
-  statusCode?: number;
 }
 
 /** A downloaded blob plus the filename parsed from `content-disposition`. */

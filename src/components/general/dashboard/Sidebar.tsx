@@ -54,16 +54,19 @@ export function AppSidebar({ badges }: AppSidebarProps) {
   const isActive = useIsActive();
   const { openSections, toggleSection } = useSidebarStore();
 
+  // The inner pane is transparent so the shell wash shows through; the only
+  // edge is a hairline in `--sidebar-border`. The mobile sheet keeps its own
+  // solid fill (that branch ignores `className`) since it floats over content.
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar
+      collapsible="icon"
+      className="border-r-sidebar-border **:data-[slot=sidebar-inner]:bg-transparent"
+    >
       <SidebarHeader className="border-sidebar-border border-b px-4 py-4">
         <Link href="/dashboard" className="font-display flex items-center gap-2 font-semibold">
           <KomtruMark className="text-komtru-cyan" size={20} />
           <span className="group-data-[collapsible=icon]:hidden">Komtru</span>
         </Link>
-        <p className="text-sidebar-foreground/55 text-[10.5px] tracking-[0.08em] uppercase group-data-[collapsible=icon]:hidden">
-          Operations
-        </p>
       </SidebarHeader>
 
       <SidebarContent>

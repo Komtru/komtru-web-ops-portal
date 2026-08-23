@@ -37,4 +37,21 @@ export const MENU: MenuSection[] = [
     icon: LayoutDashboard,
     href: '/dashboard',
   },
+  {
+    id: 'trades',
+    label: 'Trades',
+    icon: LayoutDashboard,
+    items: [
+      {
+        id: 'trades-active',
+        label: 'Active trades',
+        href: '/trades/active',
+      },
+      {
+        id: 'trades-all',
+        label: 'All trades',
+        href: '/trades',
+      },
+    ],
+  },
 ];

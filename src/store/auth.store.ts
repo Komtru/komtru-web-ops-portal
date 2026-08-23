@@ -4,6 +4,14 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import type { IAuthStore } from '@/interfaces/auth';
 
 /**
+ * `localStorage` key the session persists under.
+ *
+ * Exported because signing out has to delete the record outright, not just null
+ * its fields — see `clearClientSession` in `helpers/session.ts`.
+ */
+export const AUTH_STORAGE_KEY = 'komtru-auth-store';
+
+/**
  * The only place server data is mirrored into client state: the session.
  * Everything else lives in TanStack Query.
  */
@@ -21,7 +29,7 @@ export const useAuthStore = create<IAuthStore>()(
         set({
           auth,
           user,
-          organization,
+          organization: organization ?? null,
           access: tokens.access,
           refresh: tokens.refresh,
         }),
@@ -51,7 +59,7 @@ export const useAuthStore = create<IAuthStore>()(
         }),
     }),
     {
-      name: 'komtru-auth-store',
+      name: AUTH_STORAGE_KEY,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         access: state.access,

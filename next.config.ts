@@ -12,14 +12,6 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'images.unsplash.com' },
     ],
   },
-  /**
-   * There is no public surface on this app — it is the internal operations
-   * console. Done here rather than in a root `page.tsx` so `/` answers with a
-   * real 307 instead of a rendered shell that redirects after hydration.
-   */
-  async redirects() {
-    return [{ source: '/', destination: '/dashboard', permanent: false }];
-  },
   async rewrites() {
     return [
       {

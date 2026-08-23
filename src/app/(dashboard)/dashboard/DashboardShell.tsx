@@ -1,29 +1,63 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useEffect } from 'react';
 
+import { Spinner } from '@/components/general/spinner';
 import { AppSidebar } from '@/components/general/dashboard/Sidebar';
 import { Topbar } from '@/components/general/dashboard/Topbar';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { REDIRECT_PARAM } from '@/helpers/redirect';
+import { isAuthenticated, useAuthStore } from '@/store/auth.store';
 
 /**
  * Client half of the dashboard layout: sidebar + topbar chrome and the animated
  * content surface. Module pages render into the rounded card.
  *
- * Route protection deliberately lives nowhere yet — the account model isn't
- * defined, so there is nothing truthful to gate on. `middleware.ts` stays a
- * pass-through for the same reason.
+ * The session gate is client-side by necessity: tokens live in `localStorage`
+ * (see `store/auth.store.ts`), which the edge runtime can't read, so
+ * `middleware.ts` stays a pass-through. Roles/permissions are still unmodelled
+ * — this checks only that a session exists.
  */
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  const hydrated = useAuthStore((state) => state.hydrated);
+  const signedIn = hydrated && isAuthenticated();
+
+  // Bounce to sign-in carrying where the operator was headed, so verifying the
+  // code lands them here rather than on the default page.
+  useEffect(() => {
+    if (hydrated && !isAuthenticated()) {
+      const query = searchParams.toString();
+      const target = query ? `${pathname}?${query}` : pathname;
+
+      router.replace(`/?${REDIRECT_PARAM}=${encodeURIComponent(target)}`);
+    }
+  }, [hydrated, pathname, searchParams, router]);
+
+  // Nothing of the console renders until the session is known: a flash of the
+  // shell would leak module chrome to a signed-out visitor.
+  if (!signedIn) {
+    return (
+      <div className="shell-blend flex min-h-svh items-center justify-center">
+        <Spinner label={hydrated ? 'Redirecting to sign-in' : 'Restoring session'} showLabel />
+      </div>
+    );
+  }
 
   return (
     <TooltipProvider delayDuration={200}>
-      <SidebarProvider>
+      {/* The wash lives on the provider's wrapper — the one element that spans
+          both the sidebar and the content — so the panes never meet at a seam.
+          Everything inside stays transparent to let it through. */}
+      <SidebarProvider className="shell-blend">
         <AppSidebar />
-        <SidebarInset className="bg-komtru-slate-100 dark:bg-komtru-navy">
+        <SidebarInset className="bg-transparent">
           <Topbar />
           <main className="flex-1 p-4 md:p-6">
             <AnimatePresence mode="wait">
@@ -33,7 +67,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-                className="bg-card border-border min-h-[calc(100vh-7rem)] rounded-2xl border p-4 shadow-sm md:p-6"
+                className="surface-veil min-h-[calc(100vh-7rem)] p-4 md:p-6"
               >
                 {children}
               </motion.div>
