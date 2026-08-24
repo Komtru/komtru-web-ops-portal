@@ -34,8 +34,6 @@ export const fonts = {
 };
 
 /** Convenience: all font variables, for the <html> tag. */
-export const fontVariables = [
-  spaceGrotesk.variable,
-  inter.variable,
-  ibmPlexMono.variable,
-].join(' ');
+export const fontVariables = [spaceGrotesk.variable, inter.variable, ibmPlexMono.variable].join(
+  ' ',
+);

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-import { SettingsView } from '@/app/(dashboard)/dashboard/settings/SettingsView';
+import { SettingsView } from '@/app/(dashboard)/settings/SettingsView';
 
 export const metadata: Metadata = {
   title: 'Settings',

@@ -73,7 +73,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
                   transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-                  className="surface-veil min-h-[calc(100vh-7rem)] p-4 md:p-6"
+                  className="min-h-[calc(100vh-7rem)]"
                 >
                   {children}
                 </motion.div>

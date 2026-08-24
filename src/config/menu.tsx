@@ -1,4 +1,15 @@
-import { LayoutDashboard, type LucideIcon } from 'lucide-react';
+import {
+  ArrowLeftRight,
+  BadgeCheck,
+  Gavel,
+  Landmark,
+  LayoutDashboard,
+  ScrollText,
+  ShieldAlert,
+  Users,
+  Vault,
+  type LucideIcon,
+} from 'lucide-react';
 
 export interface MenuItem {
   id: string;
@@ -33,25 +44,56 @@ export interface MenuSection {
 export const MENU: MenuSection[] = [
   {
     id: 'overview',
-    label: 'Overview',
+    label: 'Command center',
     icon: LayoutDashboard,
     href: '/dashboard',
   },
   {
+    id: 'directory',
+    label: 'Directory',
+    icon: Users,
+    href: '/directory',
+  },
+  {
     id: 'trades',
-    label: 'Trades',
-    icon: LayoutDashboard,
-    items: [
-      {
-        id: 'trades-active',
-        label: 'Active trades',
-        href: '/trades/active',
-      },
-      {
-        id: 'trades-all',
-        label: 'All trades',
-        href: '/trades',
-      },
-    ],
+    label: 'Trades & Lifecycle',
+    icon: ArrowLeftRight,
+    href: '/trades',
+  },
+  {
+    id: 'disputes',
+    label: 'Disputes',
+    icon: Gavel,
+    href: '/disputes',
+  },
+  {
+    id: 'kyc-and-verifications',
+    label: 'KYC & Verifications',
+    icon: BadgeCheck,
+    href: '/kyc-and-verifications',
+  },
+  {
+    id: 'escrow',
+    label: 'Escrow & Protection',
+    icon: Vault,
+    href: '/escrow-and-protection',
+  },
+  {
+    id: 'settlements-and-ledger',
+    label: 'Settlements & Ledger',
+    icon: Landmark,
+    href: '/settlements-and-ledger',
+  },
+  {
+    id: 'risk-and-safety',
+    label: 'Risk & Safety',
+    icon: ShieldAlert,
+    href: '/risk-and-safety',
+  },
+  {
+    id: 'audit-trail',
+    label: 'Audit Trail',
+    icon: ScrollText,
+    href: '/audit-trail',
   },
 ];
