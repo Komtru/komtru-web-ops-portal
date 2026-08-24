@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 import { Spinner } from '@/components/general/spinner';
 import { AppSidebar } from '@/components/general/dashboard/Sidebar';
 import { Topbar } from '@/components/general/dashboard/Topbar';
+import { RealtimeProviders } from '@/components/realtime/realtime-providers';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { REDIRECT_PARAM } from '@/helpers/redirect';
@@ -51,30 +52,36 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <TooltipProvider delayDuration={200}>
-      {/* The wash lives on the provider's wrapper — the one element that spans
+    // Below the session gate on purpose: this is what makes "no socket for a
+    // signed-out visitor" structural. The provider is never rendered for one,
+    // so there is no connection to stand down — and it unmounts, closing the
+    // socket, the moment the session goes away.
+    <RealtimeProviders>
+      <TooltipProvider delayDuration={200}>
+        {/* The wash lives on the provider's wrapper — the one element that spans
           both the sidebar and the content — so the panes never meet at a seam.
           Everything inside stays transparent to let it through. */}
-      <SidebarProvider className="shell-blend">
-        <AppSidebar />
-        <SidebarInset className="bg-transparent">
-          <Topbar />
-          <main className="flex-1 p-4 md:p-6">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={pathname}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-                className="surface-veil min-h-[calc(100vh-7rem)] p-4 md:p-6"
-              >
-                {children}
-              </motion.div>
-            </AnimatePresence>
-          </main>
-        </SidebarInset>
-      </SidebarProvider>
-    </TooltipProvider>
+        <SidebarProvider className="shell-blend">
+          <AppSidebar />
+          <SidebarInset className="bg-transparent">
+            <Topbar />
+            <main className="flex-1 p-4 md:p-6">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={pathname}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+                  className="min-h-[calc(100vh-7rem)]"
+                >
+                  {children}
+                </motion.div>
+              </AnimatePresence>
+            </main>
+          </SidebarInset>
+        </SidebarProvider>
+      </TooltipProvider>
+    </RealtimeProviders>
   );
 }

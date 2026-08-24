@@ -35,9 +35,7 @@ export function DatePicker({
 
   return (
     <div className={cn('w-full', className)}>
-      {label ? (
-        <span className="mb-1.5 block text-xs font-semibold">{label}</span>
-      ) : null}
+      {label ? <span className="mb-1.5 block text-xs font-semibold">{label}</span> : null}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button

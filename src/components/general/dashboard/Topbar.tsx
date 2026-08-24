@@ -139,7 +139,7 @@ export function Topbar({ alertCount = 0 }: TopbarProps) {
             <DropdownMenuSeparator />
 
             <DropdownMenuItem asChild>
-              <Link href="/dashboard/settings">
+              <Link href="/settings">
                 <Settings aria-hidden />
                 Settings
               </Link>

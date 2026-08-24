@@ -50,9 +50,9 @@ export const FloatingLabelInput = React.forwardRef<HTMLInputElement, FloatingLab
           <label
             htmlFor={inputId}
             className={cn(
-              'text-muted-foreground pointer-events-none absolute left-3.5 top-1.5 text-[11px] font-medium transition-all duration-150',
+              'text-muted-foreground pointer-events-none absolute top-1.5 left-3.5 text-[11px] font-medium transition-all duration-150',
               'peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-sm',
-              'peer-focus:top-1.5 peer-focus:text-[11px] peer-focus:text-komtru-blue',
+              'peer-focus:text-komtru-blue peer-focus:top-1.5 peer-focus:text-[11px]',
               'dark:peer-focus:text-komtru-slate-100',
               invalid && 'text-komtru-risk peer-focus:text-komtru-risk',
             )}

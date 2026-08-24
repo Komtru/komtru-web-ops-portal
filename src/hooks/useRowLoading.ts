@@ -24,7 +24,7 @@ export function useRowLoading<Id extends string = string>() {
   const isRowLoading = useCallback((id: Id) => loadingRows.has(id), [loadingRows]);
 
   const withRowLoading = useCallback(
-    async <T,>(id: Id, action: () => Promise<T>): Promise<T> => {
+    async <T>(id: Id, action: () => Promise<T>): Promise<T> => {
       startLoading(id);
       try {
         return await action();

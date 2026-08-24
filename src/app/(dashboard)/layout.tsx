@@ -3,7 +3,7 @@ import { Suspense } from 'react';
 
 import { fonts } from '@/app/fonts';
 import { Spinner } from '@/components/general/spinner';
-import { DashboardShell } from '@/app/(dashboard)/dashboard/DashboardShell';
+import { DashboardShell } from '@/app/(dashboard)/DashboardShell';
 
 export const metadata: Metadata = {
   title: 'Control room',
