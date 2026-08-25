@@ -1,18 +1,11 @@
-import { Users } from 'lucide-react';
-import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 
-import { ModulePlaceholder } from '@/components/general/module-placeholder';
-
-export const metadata: Metadata = {
-  title: 'Directory',
-};
-
+/**
+ * `Directory` is now a group (Customers / Staff Members — see
+ * `src/config/menu.tsx`), so the bare `/directory` route has no screen of
+ * its own. Customers is the broader, ungated entry, so it is the sensible
+ * landing spot for anyone who still links straight to `/directory`.
+ */
 export default function DirectoryPage() {
-  return (
-    <ModulePlaceholder
-      title="Directory"
-      description="Look up any account on the platform and open its full operator record — identity, trade history, and the actions taken on it."
-      icon={Users}
-    />
-  );
+  redirect('/directory/customers');
 }

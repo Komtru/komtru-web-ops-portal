@@ -86,6 +86,7 @@ export function useVerifyOtp() {
       initUserStore({
         auth: { id: result.user.userId, email: variables.email },
         user: result.user,
+        staff: result.staff ?? null,
         tokens: toAccess(result),
       });
     },
@@ -131,6 +132,7 @@ export function useVerifyMfa() {
       initUserStore({
         auth: { id: result.user.userId, email: variables.email },
         user: result.user,
+        staff: result.staff ?? null,
         tokens: toAccess(result),
       });
     },

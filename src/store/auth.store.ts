@@ -23,13 +23,15 @@ export const useAuthStore = create<IAuthStore>()(
       auth: null,
       user: null,
       organization: null,
+      staff: null,
       hydrated: false,
 
-      initUserStore: ({ auth, user, organization, tokens }) =>
+      initUserStore: ({ auth, user, organization, staff, tokens }) =>
         set({
           auth,
           user,
           organization: organization ?? null,
+          staff: staff ?? null,
           access: tokens.access,
           refresh: tokens.refresh,
         }),
@@ -56,6 +58,7 @@ export const useAuthStore = create<IAuthStore>()(
           auth: null,
           user: null,
           organization: null,
+          staff: null,
         }),
     }),
     {
@@ -67,6 +70,7 @@ export const useAuthStore = create<IAuthStore>()(
         auth: state.auth,
         user: state.user,
         organization: state.organization,
+        staff: state.staff,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHydrated();

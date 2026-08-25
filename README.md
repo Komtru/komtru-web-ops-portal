@@ -93,20 +93,23 @@ src/
     layout.tsx                 # metadata, providers, Toaster, top loader
     globals.css                # Tailwind v4 @theme brand tokens + shadcn vars
     fonts.ts                   # Space Grotesk / Inter / IBM Plex Mono
-    (auth)/                    # `/` email step + `/verify` OTP step
-    (dashboard)/dashboard/     # shell (sidebar + topbar) + placeholder overview
+    (auth)/                    # `/` email step, `/verify` OTP+MFA step, `/mfa` TOTP enrolment
+    (dashboard)/dashboard/     # shell (sidebar + topbar) + command center overview
+    (dashboard)/directory/     # Customers (placeholder) + Staff Members (M14, built)
   components/
     ui/                        # shadcn primitives (generated, then re-themed)
     general/                   # shell chrome, KomtruMark, Spinner, QueryState
+    general/admin/             # cross-module admin_action_log table (M14)
     forms/                     # FloatingLabelInput, DatePicker, MultiSelect
     realtime/                  # socket connection + live notification context
     query-provider.tsx  theme-provider.tsx
-  config/    brand.ts (the only raw hex), menu.tsx (nav structure), realtime.ts
+  config/    brand.ts (the only raw hex), menu.tsx (nav + filterMenuByPermissions),
+             roles.ts (staff role catalog, mirrors identity's rbac/catalog.ts), realtime.ts
   helpers/   format, timezones, delay, redirect (safe `redirect_uri` handling)
   hooks/     useCustomToast, useRowLoading, useDeviceTimeZone, use-mobile
-  interfaces/  IAxios, auth, organization, common, realtime
+  interfaces/  IAxios, auth, organization, common, realtime, staff (M14)
   lib/       react-query.ts (QueryClient singleton), utils.ts (cn)
-  services/  base.ts (facade), auth.services.ts, organization.services.ts
+  services/  base.ts (facade), auth.services.ts, organization.services.ts, staff.services.ts (M14)
   store/     auth.store.ts, sidebar.store.ts
   middleware.ts
 ```
@@ -213,11 +216,14 @@ On a session: `useVerifyOtp` maps the flat tokens through `toAccess` and commits
 `replace`s to `redirect_uri` or `/dashboard`. A non-null `nextStep` (`ENROL_MFA` for every bootstrap
 admin) is outstanding *setup*, not a failed sign-in — the operator continues, with a toast.
 
-> **Not built yet: the second factor.** `POST auth/mfa/verify` (mfaToken + factorId + code) is
-> documented but has no screen, so `mfaRequired` renders an explicit "ask an administrator" state
-> rather than pretending. Same for enrolment (`POST me/mfa/totp/enroll`). Note the API demands an
-> enrolled factor even when `IDENTITY_STAFF_REQUIRE_MFA=false`, so this path activates the moment
-> anyone enrols.
+The second factor is built: `mfaRequired` renders `MfaChallengeForm` (`/verify`, answering `POST
+auth/mfa/verify`) rather than an "ask an administrator" placeholder, and a `nextStep: 'ENROL_MFA'`
+routes to `EnrolTotpForm` (`/mfa`, `POST me/mfa/totp/enroll` + `POST me/mfa/totp/activate`) with a QR
+code, a manual-entry key, and the grace-period copy in `helpers/mfa.ts`. What is genuinely still
+unreachable: SMS/email/passkey factors, because the API has no route to *send* a code for the first two
+and no WebAuthn ceremony for the third — `MfaChallengeForm` says so explicitly per factor rather than
+rendering a dead input. Note the API demands an enrolled factor even when
+`IDENTITY_STAFF_REQUIRE_MFA=false`, so this path activates the moment anyone enrols.
 
 Session handling:
 
@@ -244,9 +250,15 @@ Guard rails:
 - `middleware.ts` is still a pass-through: `localStorage` tokens are invisible to the edge runtime,
   so a guard there would be theatre.
 - **Staff sessions carry no tenant** — the store keeps `organization: null`, and the topbar labels
-  the operator by username-or-email plus `publicId`. Roles/permissions are equally unmodelled: the
-  token has a `scp: STAFF` claim but the response body doesn't expose the role, so `config/menu.tsx`
-  shows every entry to every operator. Filter it once at the layout boundary when roles land.
+  the operator by username-or-email plus `publicId`.
+- **Roles/permissions are modelled** (M14): the staff login response carries a `staff: { roles,
+  permissions }` block, resolved fresh from live role assignments rather than baked into the access
+  token, and `store/auth.store.ts` persists it. `config/menu.tsx` entries can declare a `permission`
+  code; `filterMenuByPermissions()` filters the menu once at the layout boundary
+  (`components/general/dashboard/Sidebar.tsx`) rather than scattering checks through pages. Today
+  only `directory/staff` is gated (`role.view`) — add a `permission` to a `MenuItem`/`MenuSection`
+  as other modules pick up real access rules; an entry with no `permission` stays open to every
+  staff session.
 
 ## Pre-installed but unused
 
