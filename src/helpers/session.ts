@@ -150,3 +150,24 @@ export function usableLoginFactors(factors: MfaFactor[]): MfaFactor[] {
 export function preferredFactor(factors: MfaFactor[]): MfaFactor | undefined {
   return factors.find((factor) => factor.isDefault) ?? factors[0];
 }
+
+/**
+ * Whether the signed-in operator holds `permission`.
+ *
+ * Reads straight off the store rather than the token: `staff.permissions` is
+ * resolved server-side at login from live role assignments (see M14's
+ * `respondWithLogin`), so this is exactly what the backend would also decide —
+ * never a client-side guess that can drift from what the API actually enforces.
+ * A missing `staff` block (session mid-hydration, or somehow non-staff) denies
+ * by default, matching the API's own posture.
+ */
+export function hasPermission(permission: string): boolean {
+  return Boolean(useAuthStore.getState().staff?.permissions.includes(permission));
+}
+
+/** True when the operator holds at least one of `permissions`. */
+export function hasAnyPermission(permissions: readonly string[]): boolean {
+  const held = useAuthStore.getState().staff?.permissions ?? [];
+  return permissions.some((permission) => held.includes(permission));
+}
+

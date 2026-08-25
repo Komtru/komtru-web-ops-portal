@@ -24,9 +24,11 @@ export interface Access {
 /* -------------------------------------------------------------------------- */
 /* Session                                                                     */
 /*                                                                             */
-/* Shapes here mirror what `auth/staff/login/verify` actually returns. Roles    */
-/* and permissions still aren't modelled — the token carries a `scp` claim      */
-/* (`STAFF`) but the response body doesn't expose it, so nothing reads it yet.  */
+/* Shapes here mirror what `auth/staff/login/verify` (and `auth/mfa/verify`)    */
+/* actually return. Roles and permissions ARE now modelled: a STAFF-scoped      */
+/* login response carries a `staff` block resolved fresh from live role        */
+/* assignments (never from the token itself), and `config/menu.tsx` filters    */
+/* the sidebar against `staff.permissions`.                                    */
 /* -------------------------------------------------------------------------- */
 
 /**
@@ -48,6 +50,20 @@ export interface IAuth {
 export type StaffStatus = 'ACTIVE' | (string & {});
 
 export type VerificationLevel = 'UNVERIFIED' | (string & {});
+
+/**
+ * The operator's resolved role/permission set, present on a STAFF-scoped
+ * session response. Absent from `MfaChallenge` — no session exists yet to
+ * resolve roles for — so callers read it only once `isMfaChallenge` says the
+ * response is a real session.
+ */
+export interface StaffAccess {
+  /** Role codes currently held, e.g. `['SUPPORT_AGENT']`. Empty is possible in
+   *  principle but never in practice — a STAFF session cannot exist without one. */
+  roles: string[];
+  /** The full resolved permission set those roles confer, e.g. `['user.view', ...]`. */
+  permissions: string[];
+}
 
 /** Operator record as the staff identity service returns it. */
 export interface IUser {
@@ -146,6 +162,9 @@ export interface StaffSession {
   tokenType: string;
   user: IUser;
   nextStep: StaffLoginNextStep | null;
+  /** Present whenever `session.scope === 'STAFF'` — which is every session this
+   *  console ever issues, since there is no consumer sign-in here. */
+  staff?: StaffAccess;
 }
 
 export type MfaFactorType = 'TOTP' | 'SMS_OTP' | 'EMAIL_OTP' | 'PASSKEY' | (string & {});
@@ -274,6 +293,8 @@ interface authStore {
   auth: IAuth | null;
   user: IUser | null;
   organization: IOrganization | null;
+  /** `null` before the first STAFF session lands, or once signed out. */
+  staff: StaffAccess | null;
   hydrated: boolean;
 }
 
@@ -286,6 +307,7 @@ export interface IAuthStore extends authStore {
     auth: IAuth;
     user: IUser;
     organization?: IOrganization | null;
+    staff?: StaffAccess | null;
     tokens: Access;
   }) => void;
   setAccess: (tokens: Access) => void;

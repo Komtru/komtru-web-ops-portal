@@ -3,6 +3,7 @@
 import { ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
+import { useMemo } from 'react';
 
 import { KomtruMark } from '@/components/general/komtru-mark';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -20,7 +21,8 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from '@/components/ui/sidebar';
-import { MENU, type MenuItem } from '@/config/menu';
+import { filterMenuByPermissions, MENU, type MenuItem } from '@/config/menu';
+import { useAuthStore } from '@/store/auth.store';
 import { useSidebarStore } from '@/store/sidebar.store';
 import { cn } from '@/lib/utils';
 
@@ -53,6 +55,11 @@ function useIsActive() {
 export function AppSidebar({ badges }: AppSidebarProps) {
   const isActive = useIsActive();
   const { openSections, toggleSection } = useSidebarStore();
+  const staffPermissions = useAuthStore((state) => state.staff?.permissions);
+  const menu = useMemo(
+    () => filterMenuByPermissions(MENU, staffPermissions),
+    [staffPermissions],
+  );
 
   // The inner pane is transparent so the shell wash shows through; the only
   // edge is a hairline in `--sidebar-border`. The mobile sheet keeps its own
@@ -73,7 +80,7 @@ export function AppSidebar({ badges }: AppSidebarProps) {
         <SidebarGroup>
           <SidebarGroupLabel>Control room</SidebarGroupLabel>
           <SidebarMenu>
-            {MENU.map((section) => {
+            {menu.map((section) => {
               if (!section.items?.length) {
                 return (
                   <SidebarMenuItem key={section.id}>
