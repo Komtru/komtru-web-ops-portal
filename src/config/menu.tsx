@@ -4,6 +4,7 @@ import {
   Gavel,
   Landmark,
   LayoutDashboard,
+  LifeBuoy,
   ScrollText,
   ShieldAlert,
   Users,
@@ -65,6 +66,12 @@ export const MENU: MenuSection[] = [
     label: 'Disputes',
     icon: Gavel,
     href: '/disputes',
+  },
+  {
+    id: 'tickets',
+    label: 'Tickets',
+    icon: LifeBuoy,
+    href: '/tickets',
   },
   {
     id: 'kyc-and-verifications',
