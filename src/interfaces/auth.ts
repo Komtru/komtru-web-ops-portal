@@ -85,6 +85,63 @@ export interface IUser {
 }
 
 /* -------------------------------------------------------------------------- */
+/* The operator's own account — `admin/me`                                     */
+/*                                                                             */
+/* A STAFF-scoped surface of its own, because neither existing endpoint could   */
+/* answer "who am I": `me/` is CONSUMER-scoped and 403s a staff token, and      */
+/* `admin/staff/:id` refuses self-dealing and so 403s your own id.              */
+/* -------------------------------------------------------------------------- */
+
+/** The editable half of an operator's account. */
+export interface OperatorProfile {
+  /** How the operator wants to be named across the console. `null` = not set. */
+  displayName: string | null;
+  /**
+   * Ready to render, or `null` for no photo.
+   *
+   * Resolved server-side on every read rather than stored, because it is a signed Cloudinary URL. A
+   * `PROFILE_PHOTO` is `PUBLIC` by upload policy, and a PUBLIC file gets a signed but **non-expiring**
+   * delivery URL — which is why this is safe to persist alongside the rest of the session. Anything
+   * with a real expiry would have to be re-read instead; see `avatarExpiresAt`.
+   */
+  avatarUrl: string | null;
+  /** `null` for a PUBLIC file, meaning "does not expire" rather than "unknown". */
+  avatarExpiresAt: ISODateString | null;
+  /** The M20 file the photo came from, or `null` when it is a social provider's picture. */
+  avatarFileId: string | null;
+}
+
+/**
+ * `GET admin/me` — the whole session snapshot, re-read on every page load.
+ *
+ * Deliberately the same field names the login response uses (`memberSince`, not `createdAt`), because
+ * both are written into one store and a divergence would blank the field on the first refetch.
+ */
+export interface OperatorAccount {
+  userId: string;
+  publicId: string;
+  username: string | null;
+  status: StaffStatus;
+  verificationLevel: VerificationLevel;
+  /** When the account was created — the anchor for the MFA grace window (`helpers/mfa.ts`). */
+  memberSince: ISODateString;
+  profile: OperatorProfile;
+  /** Re-resolved per call from live role assignments, so a role granted mid-session lands here. */
+  staff: StaffAccess;
+}
+
+/**
+ * `PATCH admin/me/profile`. Both fields are optional and only what is **sent** changes — omitting a
+ * key leaves it alone, sending `null` clears it.
+ */
+export interface UpdateOperatorProfilePayload {
+  /** `null` or blank clears it; the API folds whitespace to `null`. Max 100 chars. */
+  displayName?: string | null;
+  /** A finalized `PROFILE_PHOTO` file id. `null` removes the photo. */
+  avatarFileId?: string | null;
+}
+
+/* -------------------------------------------------------------------------- */
 /* Staff email-OTP login                                                       */
 /*                                                                             */
 /* Passwordless by default: step 1 mails a 6-digit code (5-minute lifetime, 5   */
@@ -295,6 +352,13 @@ interface authStore {
   organization: IOrganization | null;
   /** `null` before the first STAFF session lands, or once signed out. */
   staff: StaffAccess | null;
+  /**
+   * `null` until `admin/me` has been read once — the login response carries no profile.
+   *
+   * So the first paint after a sign-in shows initials and the username, and the avatar and display name
+   * appear a moment later. Persisted, so that only happens once per browser rather than once per load.
+   */
+  profile: OperatorProfile | null;
   hydrated: boolean;
 }
 
@@ -312,6 +376,16 @@ export interface IAuthStore extends authStore {
   }) => void;
   setAccess: (tokens: Access) => void;
   setAccount: (payload: { auth?: IAuth; user?: IUser; organization?: IOrganization }) => void;
+  /**
+   * Overwrites the session facts from a fresh `admin/me` read.
+   *
+   * Distinct from `setAccount`, which merges and skips `undefined`. This one **replaces**, because the
+   * server is the authority on every field it sends: merging would keep a role the operator no longer
+   * holds and a display name they just cleared.
+   */
+  syncOperatorAccount: (account: OperatorAccount) => void;
+  /** The narrower write, for a profile edit that must not touch roles or identity. */
+  setProfile: (profile: OperatorProfile) => void;
   setHydrated: () => void;
   logoutAccount: () => void;
 }
