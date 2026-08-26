@@ -4,6 +4,7 @@ import { Laptop, LogOut, Moon, Sun } from 'lucide-react';
 import Link from 'next/link';
 import { useTheme } from 'next-themes';
 
+import { EditProfileCard } from '@/app/(dashboard)/settings/EditProfileCard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,21 +31,25 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
 /**
  * Operator settings.
  *
- * Everything here is either local to the browser (theme) or already in the
- * session store (the account facts) — nothing fetches. That isn't a placeholder
- * for a settings API: a staff token can't read `GET me/`, which is
- * CONSUMER-scoped, so there is no profile to load or edit. The one thing this
- * page can genuinely *change* server-side is session lifetime, which is why
- * sign-out lives here too.
+ * Three kinds of thing, and the distinction is what the copy on each card is for:
+ *
+ * - **Appearance** — local to this browser, never sent anywhere.
+ * - **Your profile** — the operator's own editable record, over `admin/me`. It was read-only until that
+ *   endpoint existed: `GET me/` is CONSUMER-scoped and 403s a staff token, and `admin/staff/:id`
+ *   refuses self-dealing, so nothing an operator could call would return their own profile.
+ * - **Account** and **Sessions** — facts the console cannot change from here. The account fields come
+ *   from the session store, refreshed on every page load by `useSessionSync`, so they are as current as
+ *   the last load rather than as the last sign-in.
  */
 export function SettingsView() {
   const { theme, setTheme } = useTheme();
 
   const user = useAuthStore((state) => state.user);
   const auth = useAuthStore((state) => state.auth);
+  const profile = useAuthStore((state) => state.profile);
   const hydrated = useAuthStore((state) => state.hydrated);
 
-  const label = operatorLabel(user, auth);
+  const label = operatorLabel(user, auth, profile);
 
   return (
     <div className="max-w-2xl space-y-5">
@@ -86,11 +91,17 @@ export function SettingsView() {
         </CardContent>
       </Card>
 
+      {/* Above the read-only facts, because it is the only card on this page an operator came here to
+          act on. Gated on `hydrated` for the same reason the card below is: it seeds its field from
+          persisted state, which does not exist during SSR. */}
+      {hydrated ? <EditProfileCard /> : null}
+
       <Card>
         <CardHeader>
           <CardTitle className="text-[13.5px]">Account</CardTitle>
           <CardDescription className="text-[12px]">
-            Read-only. Staff records are changed by an administrator, not from the console.
+            Read-only. Your role, status and identifiers are changed by an administrator — refreshed
+            here on every page load.
           </CardDescription>
         </CardHeader>
         <CardContent>

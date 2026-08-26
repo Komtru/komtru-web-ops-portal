@@ -4,8 +4,10 @@ import type {
   IUser,
   MfaChallenge,
   MfaFactor,
+  OperatorProfile,
   StaffLoginNextStep,
   StaffLoginResponse,
+  StaffStatus,
 } from '@/interfaces/auth';
 import type { ISODateString } from '@/interfaces/common';
 import { getQueryClient } from '@/lib/react-query';
@@ -67,14 +69,42 @@ export function isSignInComplete(nextStep: StaffLoginNextStep | null | undefined
 /**
  * How the console labels the signed-in operator.
  *
- * Username-or-email, because that is all there is. A staff record carries a
- * `username` (usually null), a status and a quotable public id — no name and no
- * avatar — and the profile endpoint that *does* hold `displayName`/`avatarUrl`
- * (`GET me/`) is CONSUMER-scoped, so a staff token cannot read it. Anything
- * showing a photo therefore falls back to initials by design, not omission.
+ * Display-name, then username, then email — in decreasing order of how much the operator chose it.
+ * `displayName` is the one they typed on the Settings page and is usually the only human name in the
+ * chain: a staff record's `username` is very often null, leaving the email as the fallback.
+ *
+ * `profile` is `null` until `admin/me` has been read once (the login response carries no profile), so
+ * the first paint after a fresh sign-in falls through to the username or email and settles a moment
+ * later. That is a one-off per browser, not per page load — the profile is persisted.
  */
-export function operatorLabel(user: IUser | null, auth: IAuth | null): string | null {
-  return user?.username ?? auth?.email ?? null;
+export function operatorLabel(
+  user: IUser | null,
+  auth: IAuth | null,
+  profile?: OperatorProfile | null,
+): string | null {
+  return profile?.displayName ?? user?.username ?? auth?.email ?? null;
+}
+
+/**
+ * Whether a refetched account means "get this person out of the console".
+ *
+ * `ACTIVE` is the only status that may operate the console, so anything else signs out. In practice
+ * that means `RESTRICTED` or `PENDING_VERIFICATION`, and the reason is worth stating because it decides
+ * whether this check is reachable at all: `SUSPENDED`, `LOCKED` and `CLOSED` each bump the account's
+ * `sessions_epoch` and revoke every session server-side, so a request from one of those accounts is a
+ * **401**, not a 200 carrying a status. The same is true of a revoked staff role, which calls
+ * `revokeAllSessions({ scope: 'STAFF' })`.
+ *
+ * So the two halves cover the whole space and neither is redundant:
+ * - access actually withdrawn → 401 → `services/base.ts` refreshes once, fails, and ejects.
+ * - account downgraded but still holding a live session → this check.
+ *
+ * A missing status (mid-hydration, or a response shape that changed) is NOT treated as booted. Failing
+ * closed here would sign an operator out over a field that never arrived, and the 401 path already
+ * covers every case where access has genuinely been taken away.
+ */
+export function isOperableStatus(status: StaffStatus | undefined | null): boolean {
+  return status === undefined || status === null || status === 'ACTIVE';
 }
 
 /**
@@ -170,4 +200,3 @@ export function hasAnyPermission(permissions: readonly string[]): boolean {
   const held = useAuthStore.getState().staff?.permissions ?? [];
   return permissions.some((permission) => held.includes(permission));
 }
-

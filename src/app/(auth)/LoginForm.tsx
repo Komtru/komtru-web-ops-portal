@@ -33,10 +33,19 @@ export function LoginForm() {
   const redirectTo = safeRedirectPath(searchParams.get(REDIRECT_PARAM));
   const hydrated = useAuthStore((state) => state.hydrated);
 
-  // `services/base.ts` appends this when it ejects a dead session. Staff
-  // sessions idle out at 30 minutes and expire absolutely at 8 hours, so
-  // landing back here mid-shift is routine and worth explaining.
-  const ejected = searchParams.get('reason') === 'session_expired';
+  /**
+   * Why the operator is looking at this screen, when something ejected them here.
+   *
+   * Two distinct reasons, and conflating them would mislead:
+   * - `session_expired` — `services/base.ts` after a 401 it could not refresh. Routine: staff sessions
+   *   idle out at 30 minutes and expire absolutely at 8 hours, so landing here mid-shift is expected.
+   * - `account_inactive` — `useSessionSync` after `admin/me` came back with a status that may not
+   *   operate the console. The session was fine; the account changed. Signing in again will not help
+   *   until an administrator reinstates it, so the copy must not invite them to try.
+   */
+  const reason = searchParams.get('reason');
+  const ejected = reason === 'session_expired';
+  const inactive = reason === 'account_inactive';
 
   // A live session has no business on the login screen. Gated on `hydrated`
   // because the token lives in localStorage and is absent during SSR.
@@ -59,6 +68,16 @@ export function LoginForm() {
           role="status"
         >
           Your session ended and you were signed out. Sign in again to pick up where you left off.
+        </p>
+      ) : null}
+
+      {inactive ? (
+        <p
+          className="border-komtru-risk/30 bg-komtru-risk-soft dark:bg-komtru-risk/10 rounded-lg border p-3 text-[11.5px] leading-relaxed"
+          role="alert"
+        >
+          This account can no longer access the console and has been signed out. Contact an
+          administrator to have it reinstated.
         </p>
       ) : null}
 
