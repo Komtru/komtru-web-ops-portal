@@ -12,6 +12,7 @@ TanStack Query v5 · Zustand v5.
 
 ---
 
+Acct
 ## Prerequisites
 
 | Tool | Version |
