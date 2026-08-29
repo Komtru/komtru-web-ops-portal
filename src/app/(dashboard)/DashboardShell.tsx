@@ -11,6 +11,7 @@ import { RealtimeProviders } from '@/components/realtime/realtime-providers';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { REDIRECT_PARAM } from '@/helpers/redirect';
+import { useSessionSync } from '@/hooks/useSessionSync';
 import { isAuthenticated, useAuthStore } from '@/store/auth.store';
 
 /**
@@ -19,8 +20,9 @@ import { isAuthenticated, useAuthStore } from '@/store/auth.store';
  *
  * The session gate is client-side by necessity: tokens live in `localStorage`
  * (see `store/auth.store.ts`), which the edge runtime can't read, so
- * `middleware.ts` stays a pass-through. Roles/permissions are still unmodelled
- * — this checks only that a session exists.
+ * `middleware.ts` stays a pass-through. What it checks is only that a session
+ * *exists* — whether that session is still any good is `useSessionSync`'s job,
+ * and it answers a request later.
  */
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -29,6 +31,17 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   const hydrated = useAuthStore((state) => state.hydrated);
   const signedIn = hydrated && isAuthenticated();
+
+  /**
+   * The whole-console session refresh, mounted here because this is the one
+   * component every module page renders inside — so "on page load" means one
+   * read, not one per screen. TanStack Query dedupes it across remounts.
+   *
+   * Called unconditionally (hooks must be), gated by `enabled`: there is
+   * nothing to re-read before the store has rehydrated, and a signed-out
+   * visitor must not fire an authenticated request at all.
+   */
+  useSessionSync({ enabled: signedIn });
 
   // Bounce to sign-in carrying where the operator was headed, so verifying the
   // code lands them here rather than on the default page.

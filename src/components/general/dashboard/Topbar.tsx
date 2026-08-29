@@ -13,12 +13,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { OperatorAvatar } from '@/components/general/operator-avatar';
 import { Separator } from '@/components/ui/separator';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { initialsOf } from '@/helpers/format';
 import { operatorLabel } from '@/helpers/session';
-import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth.store';
 
 interface TopbarProps {
@@ -26,38 +25,17 @@ interface TopbarProps {
   alertCount?: number;
 }
 
-/**
- * The operator's "profile photo".
- *
- * Initials, because there is no image to show: staff records carry no avatar and
- * the profile endpoint holding `avatarUrl` is consumer-scoped — see
- * `operatorLabel` in `helpers/session.ts`. Swapping in a real photo later is a
- * change to this one component.
- */
-function OperatorAvatar({ label, className }: { label: string | null; className?: string }) {
-  return (
-    <span
-      className={cn(
-        'bg-komtru-blue-soft text-komtru-info-on-soft dark:bg-komtru-blue/25 dark:text-komtru-slate-100 flex size-8 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold',
-        className,
-      )}
-      aria-hidden
-    >
-      {initialsOf(label)}
-    </span>
-  );
-}
-
 export function Topbar({ alertCount = 0 }: TopbarProps) {
   const { resolvedTheme, setTheme } = useTheme();
 
   const user = useAuthStore((state) => state.user);
   const auth = useAuthStore((state) => state.auth);
+  const profile = useAuthStore((state) => state.profile);
   const hydrated = useAuthStore((state) => state.hydrated);
 
-  // Username-or-email, with the public id underneath — that is what an operator
-  // would read out on a call. See `operatorLabel` for why there is nothing else.
-  const label = operatorLabel(user, auth);
+  // Display-name, else username, else email — with the public id underneath,
+  // which is what an operator would actually read out on a call.
+  const label = operatorLabel(user, auth, profile);
 
   return (
     <header className="bg-background/55 border-border/70 sticky top-0 z-20 flex h-16 items-center gap-3 border-b px-4 backdrop-blur-xl md:px-6">
@@ -107,7 +85,10 @@ export function Topbar({ alertCount = 0 }: TopbarProps) {
               className="hover:bg-accent/60 focus-visible:ring-ring flex items-center gap-2.5 rounded-full py-1 pr-2 pl-1 transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none"
               aria-label="Account menu"
             >
-              <OperatorAvatar label={hydrated ? label : null} />
+              <OperatorAvatar
+                label={hydrated ? label : null}
+                avatarUrl={hydrated ? profile?.avatarUrl : null}
+              />
               <span className="hidden text-left leading-tight sm:block">
                 <span className="block text-[12.5px] font-semibold">
                   {hydrated && label ? label : 'Signed out'}
@@ -122,7 +103,7 @@ export function Topbar({ alertCount = 0 }: TopbarProps) {
 
           <DropdownMenuContent align="end" className="w-64">
             <DropdownMenuLabel className="flex items-center gap-2.5 px-2 py-2">
-              <OperatorAvatar label={label} />
+              <OperatorAvatar label={label} avatarUrl={profile?.avatarUrl} />
               <span className="min-w-0 leading-tight">
                 <span className="block truncate text-[12.5px] font-semibold">
                   {label ?? 'Signed out'}

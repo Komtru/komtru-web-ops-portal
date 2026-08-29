@@ -24,6 +24,7 @@ export const useAuthStore = create<IAuthStore>()(
       user: null,
       organization: null,
       staff: null,
+      profile: null,
       hydrated: false,
 
       initUserStore: ({ auth, user, organization, staff, tokens }) =>
@@ -49,6 +50,38 @@ export const useAuthStore = create<IAuthStore>()(
           organization: organization ?? state.organization,
         })),
 
+      /**
+       * The `admin/me` refetch landing.
+       *
+       * REPLACES rather than merges, and that is the whole reason it isn't `setAccount`. The response is
+       * the server's complete answer about this operator, so a role they no longer hold or a display
+       * name they just cleared has to disappear — a merge would preserve exactly the stale facts the
+       * refetch exists to correct.
+       *
+       * `auth` is left ENTIRELY alone, and is the one thing that must be. It holds the email the
+       * operator typed at sign-in, and no endpoint returns it — `admin/me` included — so there is
+       * nothing here to refresh it from. Synthesising a blank one would be worse than leaving it null:
+       * `operatorLabel` would then resolve to an empty string rather than falling through.
+       *
+       * `createdAt` from `memberSince`, because that is the name the API publishes for the column on
+       * both this response and the login one. See `helpers/mfa.ts` for what dates off it.
+       */
+      syncOperatorAccount: (account) =>
+        set({
+          user: {
+            userId: account.userId,
+            publicId: account.publicId,
+            username: account.username,
+            status: account.status,
+            verificationLevel: account.verificationLevel,
+            createdAt: account.memberSince,
+          },
+          staff: account.staff,
+          profile: account.profile,
+        }),
+
+      setProfile: (profile) => set({ profile }),
+
       setHydrated: () => set({ hydrated: true }),
 
       logoutAccount: () =>
@@ -59,6 +92,7 @@ export const useAuthStore = create<IAuthStore>()(
           user: null,
           organization: null,
           staff: null,
+          profile: null,
         }),
     }),
     {
@@ -71,6 +105,7 @@ export const useAuthStore = create<IAuthStore>()(
         user: state.user,
         organization: state.organization,
         staff: state.staff,
+        profile: state.profile,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHydrated();
