@@ -209,7 +209,7 @@ export function PendingInvitations() {
         isEmpty={!isLoading && !error && (data?.results.length ?? 0) === 0}
         onRetry={() => void refetch()}
         emptyTitle="No invitations"
-        emptyDescription="Invitations sent from the Staff directory show up here."
+        emptyDescription="Invitations sent using the button above show up here."
       >
         <div className="border-border overflow-hidden rounded-xl border">
           <div className="overflow-x-auto">

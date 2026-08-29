@@ -4,8 +4,6 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { ShieldCheck, UserCog } from 'lucide-react';
 
-import { InviteStaffDialog } from '@/app/(dashboard)/directory/staff/InviteStaffDialog';
-import { PendingInvitations } from '@/app/(dashboard)/directory/staff/PendingInvitations';
 import { QueryState } from '@/components/general/query-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -54,38 +52,35 @@ function StaffTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
-          <Input
-            placeholder="Search staff by name, email or handle"
-            value={q}
-            onChange={(event) => {
-              setQ(event.target.value);
-              setPage(1);
-            }}
-            className="sm:max-w-xs"
-          />
-          <Select
-            value={roleCode}
-            onValueChange={(value) => {
-              setRoleCode(value);
-              setPage(1);
-            }}
-          >
-            <SelectTrigger className="sm:w-56">
-              <SelectValue placeholder="All roles" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_ROLES}>All roles</SelectItem>
-              {STAFF_ROLES.map((role) => (
-                <SelectItem key={role.code} value={role.code}>
-                  {role.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <InviteStaffDialog />
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <Input
+          placeholder="Search staff by name, email or handle"
+          value={q}
+          onChange={(event) => {
+            setQ(event.target.value);
+            setPage(1);
+          }}
+          className="sm:max-w-xs"
+        />
+        <Select
+          value={roleCode}
+          onValueChange={(value) => {
+            setRoleCode(value);
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="sm:w-56">
+            <SelectValue placeholder="All roles" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL_ROLES}>All roles</SelectItem>
+            {STAFF_ROLES.map((role) => (
+              <SelectItem key={role.code} value={role.code}>
+                {role.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <QueryState
@@ -94,7 +89,7 @@ function StaffTable() {
         isEmpty={!isLoading && !error && (data?.results.length ?? 0) === 0}
         onRetry={() => void refetch()}
         emptyTitle="No staff accounts match"
-        emptyDescription="Adjust the search or role filter, or invite someone new."
+        emptyDescription="Adjust the search or role filter, or invite someone new from Staff Invitations."
       >
         <div className="border-border overflow-hidden rounded-xl border">
           <div className="overflow-x-auto">
@@ -201,8 +196,6 @@ export function StaffMembersView() {
       </div>
 
       <StaffTable />
-
-      <PendingInvitations />
     </div>
   );
 }
