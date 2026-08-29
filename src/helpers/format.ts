@@ -41,6 +41,15 @@ export function formatRelative(iso: string): string {
   return DateTime.fromISO(iso).toRelative() ?? '';
 }
 
+/** `CONTACT_VERIFIED` -> `Contact Verified`. For enum-shaped API values with no display label of their own. */
+export function formatEnum(value: string): string {
+  return value
+    .toLowerCase()
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
 /** Initials for avatar fallbacks. Handles single-word names. */
 export function initialsOf(...parts: Array<string | undefined | null>): string {
   const letters = parts

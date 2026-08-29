@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { ArrowLeft, ShieldCheck, UserCog } from 'lucide-react';
 
+import { AccountManagerOffboardDialog } from '@/app/(dashboard)/directory/staff/[id]/AccountManagerOffboardDialog';
 import { GrantRoleDialog, RevokeRoleDialog } from '@/app/(dashboard)/directory/staff/[id]/RoleDialogs';
 import { ActionLogTable } from '@/components/general/admin/action-log-table';
 import { QueryState } from '@/components/general/query-state';
@@ -18,6 +19,7 @@ import {
 } from '@/components/ui/table';
 import { roleName } from '@/config/roles';
 import { formatDateTime } from '@/helpers/format';
+import { useAccountManagerList } from '@/services/accountManagers.services';
 import { useStaffDetail } from '@/services/staff.services';
 import type { InvitationStatus } from '@/interfaces/staff';
 
@@ -35,6 +37,7 @@ function invitationStatusVariant(
 
 export function StaffMemberDetailView({ userId }: StaffMemberDetailViewProps) {
   const { data, isLoading, error, refetch } = useStaffDetail(userId);
+  const accountManagers = useAccountManagerList();
 
   return (
     <div className="space-y-5">
@@ -114,11 +117,38 @@ export function StaffMemberDetailView({ userId }: StaffMemberDetailViewProps) {
                             {role.expiresAt ? formatDateTime(role.expiresAt) : 'Never'}
                           </TableCell>
                           <TableCell className="text-right">
-                            <RevokeRoleDialog
-                              userId={data.userId}
-                              roleCode={role.roleCode}
-                              roleLabel={roleName(role.roleCode)}
-                            />
+                            {(() => {
+                              const isAccountManager = role.roleCode === 'ACCOUNT_MANAGER';
+                              const activeCustomerCount = isAccountManager
+                                ? (accountManagers.data?.find((am) => am.staffId === data.userId)
+                                    ?.customerCount ?? 0)
+                                : 0;
+
+                              // Only intercept when this account actually holds
+                              // ACCOUNT_MANAGER and actually has customers assigned —
+                              // otherwise the plain revoke flow is unchanged.
+                              if (isAccountManager && activeCustomerCount > 0) {
+                                return (
+                                  <AccountManagerOffboardDialog
+                                    userId={data.userId}
+                                    roleCode={role.roleCode}
+                                    roleLabel={roleName(role.roleCode)}
+                                    customerCount={activeCustomerCount}
+                                    otherAccountManagers={(accountManagers.data ?? []).filter(
+                                      (am) => am.staffId !== data.userId,
+                                    )}
+                                  />
+                                );
+                              }
+
+                              return (
+                                <RevokeRoleDialog
+                                  userId={data.userId}
+                                  roleCode={role.roleCode}
+                                  roleLabel={roleName(role.roleCode)}
+                                />
+                              );
+                            })()}
                           </TableCell>
                         </TableRow>
                       ))

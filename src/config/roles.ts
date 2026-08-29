@@ -74,6 +74,12 @@ export const STAFF_ROLES: readonly RoleOption[] = [
     requiresDualApproval: false,
   },
   {
+    code: 'ACCOUNT_MANAGER',
+    name: 'Account Manager',
+    description: 'Owns a book of customer accounts — the assigned point of contact for support and outreach.',
+    requiresDualApproval: false,
+  },
+  {
     code: 'LOGISTICS_OPERATOR',
     name: 'Logistics Operator',
     description: 'Shipment exceptions.',
