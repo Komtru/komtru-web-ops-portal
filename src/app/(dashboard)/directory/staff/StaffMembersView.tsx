@@ -4,8 +4,8 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { ShieldCheck, UserCog } from 'lucide-react';
 
-import { ActionLogTable } from '@/components/general/admin/action-log-table';
 import { InviteStaffDialog } from '@/app/(dashboard)/directory/staff/InviteStaffDialog';
+import { PendingInvitations } from '@/app/(dashboard)/directory/staff/PendingInvitations';
 import { QueryState } from '@/components/general/query-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
   TableBody,
@@ -28,7 +27,7 @@ import {
 } from '@/components/ui/table';
 import { STAFF_ROLES, roleName } from '@/config/roles';
 import { formatDateTime } from '@/helpers/format';
-import { useActionLog, useStaffList } from '@/services/staff.services';
+import { useStaffList } from '@/services/staff.services';
 
 const ALL_ROLES = '__all__';
 const PAGE_SIZE = 25;
@@ -186,47 +185,9 @@ function StaffTable() {
   );
 }
 
-function PlatformActionLog() {
-  const [sourceModule, setSourceModule] = useState(ALL_ROLES);
-  const { data, isLoading, error, refetch } = useActionLog({
-    sourceModule: sourceModule === ALL_ROLES ? undefined : sourceModule,
-    limit: 50,
-  });
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Select value={sourceModule} onValueChange={setSourceModule}>
-          <SelectTrigger className="w-56">
-            <SelectValue placeholder="All modules" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL_ROLES}>All modules</SelectItem>
-            <SelectItem value="identity">Identity</SelectItem>
-            <SelectItem value="notify">Notify</SelectItem>
-            <SelectItem value="files">Files</SelectItem>
-            <SelectItem value="administration">Administration</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <QueryState
-        isLoading={isLoading}
-        error={error}
-        isEmpty={!isLoading && !error && (data?.results.length ?? 0) === 0}
-        onRetry={() => void refetch()}
-        emptyTitle="No actions logged yet"
-        emptyDescription="Admin actions across identity, notify, files and administration land here as they happen."
-      >
-        <ActionLogTable entries={data?.results ?? []} />
-      </QueryState>
-    </div>
-  );
-}
-
 export function StaffMembersView() {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div className="space-y-1">
         <h1 className="flex items-center gap-2 text-xl font-semibold">
           <UserCog className="text-muted-foreground size-[18px]" aria-hidden />
@@ -239,18 +200,9 @@ export function StaffMembersView() {
         </p>
       </div>
 
-      <Tabs defaultValue="staff">
-        <TabsList>
-          <TabsTrigger value="staff">Staff</TabsTrigger>
-          <TabsTrigger value="action-log">Action Log</TabsTrigger>
-        </TabsList>
-        <TabsContent value="staff" className="pt-4">
-          <StaffTable />
-        </TabsContent>
-        <TabsContent value="action-log" className="pt-4">
-          <PlatformActionLog />
-        </TabsContent>
-      </Tabs>
+      <StaffTable />
+
+      <PendingInvitations />
     </div>
   );
 }

@@ -8,6 +8,7 @@ import type {
   MfaVerifyPayload,
   OtpRequestPayload,
   OtpVerifyPayload,
+  StaffAccess,
   StaffLoginResponse,
   StaffSession,
   TotpActivatePayload,
@@ -135,6 +136,31 @@ export function useVerifyMfa() {
         staff: result.staff ?? null,
         tokens: toAccess(result),
       });
+    },
+  });
+}
+
+/**
+ * `GET /admin/me` — the operator reading their own account, resolved fresh
+ * (never from the token). Modelled as a mutation rather than a query: the
+ * one caller today (`InvitationAcceptForm`, after `useAcceptInvitation`
+ * succeeds) needs it as a one-off, imperative fetch to run right after
+ * acceptance commits a session, not as a cached, re-rendered query.
+ *
+ * That caller exists because of a real gap in the invitation-accept
+ * response: unlike `auth/staff/login/verify`, it carries no `staff` block
+ * (see `docs/api/staff-invitations.md` in `backend-apis` — the accept
+ * response is `{ accessToken, refreshToken, expiresIn, tokenType, user,
+ * roleCode, nextStep }`, nothing more). Without this follow-up call, a
+ * freshly accepted admin would land in the console with `staff: null` and
+ * `config/menu.tsx` would filter their sidebar down to nothing.
+ */
+export function useAdminMe() {
+  return useMutation<{ staff: StaffAccess }, RequestError, void>({
+    mutationKey: [...authKeys.all, 'me'],
+    mutationFn: async () => {
+      const response = await http.get<AuthEnvelope<{ staff: StaffAccess }>>({ url: 'admin/me' });
+      return response.data;
     },
   });
 }
