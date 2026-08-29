@@ -76,6 +76,12 @@ export const MENU: MenuSection[] = [
         href: '/directory/staff',
         permission: 'role.view',
       },
+      {
+        id: 'directory-staff-invitations',
+        label: 'Staff Invitations',
+        href: '/directory/staff/invitations',
+        permission: 'role.view',
+      },
     ],
   },
   {
