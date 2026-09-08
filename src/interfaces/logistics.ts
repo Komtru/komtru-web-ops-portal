@@ -16,6 +16,15 @@ export interface LogisticsCompany {
 export type LogisticsMemberRole = 'ADMIN' | 'OPERATOR';
 export type LogisticsMemberStatus = 'INVITED' | 'ACTIVE' | 'REMOVED';
 
+export interface LogisticsMemberUser {
+  id: string;
+  publicId: string;
+  displayName: string;
+  avatarUrl?: string | null;
+  email?: string | null;
+  phone?: string | null;
+}
+
 export interface LogisticsCompanyMember {
   id: string;
   companyId: string;
@@ -28,6 +37,7 @@ export interface LogisticsCompanyMember {
   removedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  user?: LogisticsMemberUser | null;
 }
 
 export interface OnboardCompanyPayload {
