@@ -37,10 +37,15 @@ export function useAccountManagerList() {
   return useQuery<AccountManagerSummary[]>({
     queryKey: accountManagerKeys.list(),
     queryFn: async () => {
-      const response = await http.get<IResponse<AccountManagerSummary[]>>({
+      const response = await http.get<
+        IResponse<AccountManagerSummary[] | { results: AccountManagerSummary[] }>
+      >({
         url: 'admin/account-managers',
       });
-      return response.data;
+      if (Array.isArray(response.data)) {
+        return response.data;
+      }
+      return response.data?.results ?? [];
     },
   });
 }

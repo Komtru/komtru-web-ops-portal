@@ -52,7 +52,8 @@ export function AssignAccountManagerDialog({
   const assign = useAssignAccountManager();
 
   const isReassign = Boolean(currentAccountManagerId);
-  const options = (accountManagers.data ?? []).filter(
+  const amList = Array.isArray(accountManagers.data) ? accountManagers.data : [];
+  const options = amList.filter(
     (am) => am.staffId !== currentAccountManagerId,
   );
 
