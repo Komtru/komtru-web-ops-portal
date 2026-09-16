@@ -7,10 +7,12 @@ import {
   LifeBuoy,
   ScrollText,
   ShieldAlert,
+  Truck,
   Users,
   Vault,
   type LucideIcon,
 } from 'lucide-react';
+
 
 export interface MenuItem {
   id: string;
@@ -91,7 +93,26 @@ export const MENU: MenuSection[] = [
     href: '/trades',
   },
   {
+    id: 'logistics',
+    label: 'Logistics',
+    icon: Truck,
+    permission: 'logistics.manage',
+    items: [
+      {
+        id: 'logistics-companies',
+        label: 'Companies',
+        href: '/logistics/companies',
+      },
+      {
+        id: 'logistics-packages',
+        label: 'Shipments',
+        href: '/logistics/packages',
+      },
+    ],
+  },
+  {
     id: 'disputes',
+
     label: 'Disputes',
     icon: Gavel,
     href: '/disputes',

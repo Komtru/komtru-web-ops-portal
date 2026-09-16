@@ -120,8 +120,10 @@ export function StaffMemberDetailView({ userId }: StaffMemberDetailViewProps) {
                             {(() => {
                               const isAccountManager = role.roleCode === 'ACCOUNT_MANAGER';
                               const activeCustomerCount = isAccountManager
-                                ? (accountManagers.data?.find((am) => am.staffId === data.userId)
-                                    ?.customerCount ?? 0)
+                                ? (Array.isArray(accountManagers.data)
+                                    ? accountManagers.data.find((am) => am.staffId === data.userId)
+                                    : undefined
+                                  )?.customerCount ?? 0
                                 : 0;
 
                               // Only intercept when this account actually holds
@@ -134,9 +136,10 @@ export function StaffMemberDetailView({ userId }: StaffMemberDetailViewProps) {
                                     roleCode={role.roleCode}
                                     roleLabel={roleName(role.roleCode)}
                                     customerCount={activeCustomerCount}
-                                    otherAccountManagers={(accountManagers.data ?? []).filter(
-                                      (am) => am.staffId !== data.userId,
-                                    )}
+                                    otherAccountManagers={(Array.isArray(accountManagers.data)
+                                      ? accountManagers.data
+                                      : []
+                                    ).filter((am) => am.staffId !== data.userId)}
                                   />
                                 );
                               }
