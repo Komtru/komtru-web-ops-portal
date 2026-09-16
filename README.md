@@ -10,6 +10,7 @@ and shared form widgets. Feature modules are built from their own specs and moun
 Next.js 15 (App Router, Turbopack) · React 19 · TypeScript strict · Tailwind CSS v4 · shadcn/ui ·
 TanStack Query v5 · Zustand v5.
 
+
 ---
 
 Acct
